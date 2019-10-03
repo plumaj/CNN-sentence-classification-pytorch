@@ -17,7 +17,7 @@ def train(data, params):
     if params["MODEL"] != "rand":
         # load word2vec
         print("loading word2vec...")
-        word_vectors = KeyedVectors.load_word2vec_format("GoogleNews-vectors-negative300.bin", binary=True)
+        word_vectors = KeyedVectors.load_word2vec_format("/media/alistair/Storage/word2vec/GoogleNews-vectors-negative300.bin", binary=True)
 
         wv_matrix = []
         for i in range(len(data["vocab"])):
@@ -33,7 +33,9 @@ def train(data, params):
         wv_matrix = np.array(wv_matrix)
         params["WV_MATRIX"] = wv_matrix
 
-    model = CNN(**params).cuda(params["GPU"])
+    model = CNN(**params)
+
+    # model = CNN(**params).cuda(params["GPU"])
 
     parameters = filter(lambda p: p.requires_grad, model.parameters())
     optimizer = optim.Adadelta(parameters, params["LEARNING_RATE"])
@@ -53,8 +55,10 @@ def train(data, params):
                        for sent in data["train_x"][i:i + batch_range]]
             batch_y = [data["classes"].index(c) for c in data["train_y"][i:i + batch_range]]
 
-            batch_x = Variable(torch.LongTensor(batch_x)).cuda(params["GPU"])
-            batch_y = Variable(torch.LongTensor(batch_y)).cuda(params["GPU"])
+            #batch_x = Variable(torch.LongTensor(batch_x)).cuda(params["GPU"])
+            #batch_y = Variable(torch.LongTensor(batch_y)).cuda(params["GPU"])
+            batch_x = Variable(torch.LongTensor(batch_x))
+            batch_y = Variable(torch.LongTensor(batch_y))
 
             optimizer.zero_grad()
             model.train()
@@ -95,7 +99,8 @@ def test(data, model, params, mode="test"):
          [params["VOCAB_SIZE"] + 1] * (params["MAX_SENT_LEN"] - len(sent))
          for sent in x]
 
-    x = Variable(torch.LongTensor(x)).cuda(params["GPU"])
+    #x = Variable(torch.LongTensor(x)).cuda(params["GPU"])
+    x = Variable(torch.LongTensor(x))
     y = [data["classes"].index(c) for c in y]
 
     pred = np.argmax(model(x).cpu().data.numpy(), axis=1)
@@ -159,7 +164,8 @@ def main():
             utils.save_model(model, params)
         print("=" * 20 + "TRAINING FINISHED" + "=" * 20)
     else:
-        model = utils.load_model(params).cuda(params["GPU"])
+        #model = utils.load_model(params).cuda(params["GPU"])
+        model = utils.load_model(params)
 
         test_acc = test(data, model, params)
         print("test acc:", test_acc)
