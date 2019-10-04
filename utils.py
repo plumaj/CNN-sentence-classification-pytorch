@@ -3,6 +3,59 @@ from sklearn.utils import shuffle
 import pickle
 
 
+def read_SE():
+    data = {}
+
+    def read(mode):
+        x, y = [], []
+
+        with open("data/SE/SE_" + mode + ".tsv", "r", encoding="utf-8") as f: #CLI
+        #with open(data_folder + mode + ".tsv", "r", encoding="utf-8") as f: #COLAB
+            for line in f:
+                if line[-1] == "\n":
+                    line = line[:-1]
+                y.append(line.split('\t')[0])
+                x.append(line.split('\t')[1])
+
+        x, y = shuffle(x, y)
+
+        if mode == "train":
+            dev_idx = len(x) // 10
+            data["dev_x"], data["dev_y"] = x[:dev_idx], y[:dev_idx]
+            data["train_x"], data["train_y"] = x[dev_idx:], y[dev_idx:]
+#             print("----------TRAIN_DATA---------")
+#             print(data["train_x"])
+#             print("----------DEV_DATA---------")
+#             print(data["dev_x"])
+        else:
+            data["test_x"], data["test_y"] = x, y
+
+    read("train")
+    read("test")
+
+    return data
+
+  
+def save_model(model, params):
+    path = f"saved_models/{params['DATASET']}_{params['MODEL']}_{params['EPOCH']}.pkl"
+    pickle.dump(model, open(path, "wb"))
+    print(f"Model saved at {path}!")
+
+
+def load_model(params):
+    path = f"saved_models/{params['DATASET']}_{params['MODEL']}_{params['EPOCH']}.pkl"
+
+    try:
+        model = pickle.load(open(path, "rb"))
+        print(f"Model in {path} loaded successfully!")
+
+        return model
+    except:
+        print(f"No available model such as {path}.")
+        exit()
+
+
+
 # def read_TREC():
 #     data = {}
 
@@ -29,34 +82,6 @@ import pickle
 #     read("test")
 
 #     return data
-
-
-def read_SE():
-    data = {}
-
-    def read(mode):
-        x, y = [], []
-
-        with open("data/SE/SE_" + mode + ".tsv", "r", encoding="utf-8") as f:
-            for line in f:
-                if line[-1] == "\n":
-                    line = line[:-1]
-                y.append(line.split('\t')[0])
-                x.append(line.split('\t')[1])
-
-        x, y = shuffle(x, y)
-
-        if mode == "train":
-            dev_idx = len(x) // 10
-            data["dev_x"], data["dev_y"] = x[:dev_idx], y[:dev_idx]
-            data["train_x"], data["train_y"] = x[dev_idx:], y[dev_idx:]
-        else:
-            data["test_x"], data["test_y"] = x, y
-
-    read("train")
-    read("test")
-
-    return data
 
 
 # def read_MR():
@@ -86,22 +111,3 @@ def read_SE():
 #     data["test_x"], data["test_y"] = x[test_idx:], y[test_idx:]
 
 #     return data
-
-
-def save_model(model, params):
-    path = f"saved_models/{params['DATASET']}_{params['MODEL']}_{params['EPOCH']}.pkl"
-    pickle.dump(model, open(path, "wb"))
-    print(f"Model saved at {path}!")
-
-
-def load_model(params):
-    path = f"saved_models/{params['DATASET']}_{params['MODEL']}_{params['EPOCH']}.pkl"
-
-    try:
-        model = pickle.load(open(path, "rb"))
-        print(f"Model in {path} loaded successfully!")
-
-        return model
-    except:
-        print(f"No available model such as {path}.")
-        exit()

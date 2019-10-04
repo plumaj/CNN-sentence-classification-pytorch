@@ -11,18 +11,19 @@ from gensim.models.keyedvectors import KeyedVectors
 import numpy as np
 import argparse
 import copy
-
-
+        
 def train(data, params):
     if params["MODEL"] != "rand":
         # load word2vec
         print("loading word2vec...")
-        word_vectors = KeyedVectors.load_word2vec_format("/media/alistair/Storage/word2vec/GoogleNews-vectors-negative300.bin", binary=True)
+        word_vectors = KeyedVectors.load_word2vec_format("/media/alistair/Storage/word2vec/GoogleNews-vectors-negative300.bin", binary=True) # CLI
+        #word_vectors = KeyedVectors.load_word2vec_format(embed_folder, binary=True) # COLAB
 
         wv_matrix = []
         for i in range(len(data["vocab"])):
             word = data["idx_to_word"][i]
             if word in word_vectors.vocab:
+                #print(word)
                 wv_matrix.append(word_vectors.word_vec(word))
             else:
                 wv_matrix.append(np.random.uniform(-0.01, 0.01, 300).astype("float32"))
@@ -33,9 +34,8 @@ def train(data, params):
         wv_matrix = np.array(wv_matrix)
         params["WV_MATRIX"] = wv_matrix
 
-    model = CNN(**params)
-
-    # model = CNN(**params).cuda(params["GPU"])
+    #model = CNN(**params)
+    model = CNN(**params).cuda(params["GPU"])
 
     parameters = filter(lambda p: p.requires_grad, model.parameters())
     optimizer = optim.Adadelta(parameters, params["LEARNING_RATE"])
@@ -50,15 +50,15 @@ def train(data, params):
         for i in range(0, len(data["train_x"]), params["BATCH_SIZE"]):
             batch_range = min(params["BATCH_SIZE"], len(data["train_x"]) - i)
 
-            batch_x = [[data["word_to_idx"][w] for w in sent] +
-                       [params["VOCAB_SIZE"] + 1] * (params["MAX_SENT_LEN"] - len(sent))
+            batch_x = [[data["word_to_idx"][w] for w in sent.split()] +
+                       [params["VOCAB_SIZE"] + 1] * (params["MAX_SENT_LEN"] - len(sent.split()))
                        for sent in data["train_x"][i:i + batch_range]]
             batch_y = [data["classes"].index(c) for c in data["train_y"][i:i + batch_range]]
 
-            #batch_x = Variable(torch.LongTensor(batch_x)).cuda(params["GPU"])
-            #batch_y = Variable(torch.LongTensor(batch_y)).cuda(params["GPU"])
-            batch_x = Variable(torch.LongTensor(batch_x))
-            batch_y = Variable(torch.LongTensor(batch_y))
+            batch_x = Variable(torch.LongTensor(batch_x)).cuda(params["GPU"])
+            batch_y = Variable(torch.LongTensor(batch_y)).cuda(params["GPU"])
+            #batch_x = Variable(torch.LongTensor(batch_x))
+            #batch_y = Variable(torch.LongTensor(batch_y))
 
             optimizer.zero_grad()
             model.train()
@@ -95,12 +95,12 @@ def test(data, model, params, mode="test"):
     elif mode == "test":
         x, y = data["test_x"], data["test_y"]
 
-    x = [[data["word_to_idx"][w] if w in data["vocab"] else params["VOCAB_SIZE"] for w in sent] +
-         [params["VOCAB_SIZE"] + 1] * (params["MAX_SENT_LEN"] - len(sent))
+    x = [[data["word_to_idx"][w] if w in data["vocab"] else params["VOCAB_SIZE"] for w in sent.split()] +
+         [params["VOCAB_SIZE"] + 1] * (params["MAX_SENT_LEN"] - len(sent.split()))
          for sent in x]
 
-    #x = Variable(torch.LongTensor(x)).cuda(params["GPU"])
-    x = Variable(torch.LongTensor(x))
+    x = Variable(torch.LongTensor(x)).cuda(params["GPU"])
+    #x = Variable(torch.LongTensor(x))
     y = [data["classes"].index(c) for c in y]
 
     pred = np.argmax(model(x).cpu().data.numpy(), axis=1)
@@ -110,32 +110,40 @@ def test(data, model, params, mode="test"):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="-----[CNN-classifier]-----")
-    parser.add_argument("--mode", default="train", help="train: train (with test) a model / test: test saved models")
-    parser.add_argument("--model", default="rand", help="available models: rand, static, non-static, multichannel")
-    parser.add_argument("--dataset", default="TREC", help="available datasets: MR, TREC")
-    parser.add_argument("--save_model", default=False, action='store_true', help="whether saving model or not")
-    parser.add_argument("--early_stopping", default=False, action='store_true', help="whether to apply early stopping")
-    parser.add_argument("--epoch", default=100, type=int, help="number of max epoch")
-    parser.add_argument("--learning_rate", default=1.0, type=float, help="learning rate")
-    parser.add_argument("--gpu", default=-1, type=int, help="the number of gpu to be used")
+    #parser = argparse.ArgumentParser(description="-----[CNN-classifier]-----")
+    #parser.add_argument("--mode", default="train", help="train: train (with test) a model / test: test saved models")
+    #parser.add_argument("--model", default="rand", help="available models: rand, static, non-static, multichannel")
+    #parser.add_argument("--dataset", default="TREC", help="available datasets: MR, TREC")
+    #parser.add_argument("--save_model", default=False, action='store_true', help="whether saving model or not")
+    #parser.add_argument("--early_stopping", default=False, action='store_true', help="whether to apply early stopping")
+    #parser.add_argument("--epoch", default=100, type=int, help="number of max epoch")
+    #parser.add_argument("--learning_rate", default=1.0, type=float, help="learning rate")
+    #parser.add_argument("--gpu", default=-1, type=int, help="the number of gpu to be used")
+    #options = parser.parse_args()
+    #data = getattr(utils, f"read_{options.dataset}")()
 
-    options = parser.parse_args()
-    data = getattr(utils, f"read_{options.dataset}")()
+    ###
+    data = read_SE()
+    mode = 'train'
+    ###
 
-    data["vocab"] = sorted(list(set([w for sent in data["train_x"] + data["dev_x"] + data["test_x"] for w in sent])))
+    data["vocab"] = sorted(list(set([w for sent in data["train_x"] + data["dev_x"] + data["test_x"] for w in sent.split()])))
     data["classes"] = sorted(list(set(data["train_y"])))
     data["word_to_idx"] = {w: i for i, w in enumerate(data["vocab"])}
     data["idx_to_word"] = {i: w for i, w in enumerate(data["vocab"])}
 
+    #print(data["idx_to_word"])
+    #print('\n\n')
+    #print(data["vocab"])
+
     params = {
-        "MODEL": options.model,
-        "DATASET": options.dataset,
-        "SAVE_MODEL": options.save_model,
-        "EARLY_STOPPING": options.early_stopping,
-        "EPOCH": options.epoch,
-        "LEARNING_RATE": options.learning_rate,
-        "MAX_SENT_LEN": max([len(sent) for sent in data["train_x"] + data["dev_x"] + data["test_x"]]),
+        "MODEL": "non-static",
+        "DATASET": "SE",
+        "SAVE_MODEL": False,
+        "EARLY_STOPPING": False,
+        "EPOCH": 100,
+        "LEARNING_RATE": 1.0,
+        "MAX_SENT_LEN": max([len(sent.split()) for sent in data["train_x"] + data["dev_x"] + data["test_x"]]),
         "BATCH_SIZE": 50,
         "WORD_DIM": 300,
         "VOCAB_SIZE": len(data["vocab"]),
@@ -144,7 +152,7 @@ def main():
         "FILTER_NUM": [100, 100, 100],
         "DROPOUT_PROB": 0.5,
         "NORM_LIMIT": 3,
-        "GPU": options.gpu
+        "GPU": 0
     }
 
     print("=" * 20 + "INFORMATION" + "=" * 20)
@@ -157,15 +165,15 @@ def main():
     print("SAVE_MODEL:", params["SAVE_MODEL"])
     print("=" * 20 + "INFORMATION" + "=" * 20)
 
-    if options.mode == "train":
+    if mode == "train":
         print("=" * 20 + "TRAINING STARTED" + "=" * 20)
         model = train(data, params)
         if params["SAVE_MODEL"]:
             utils.save_model(model, params)
         print("=" * 20 + "TRAINING FINISHED" + "=" * 20)
     else:
-        #model = utils.load_model(params).cuda(params["GPU"])
-        model = utils.load_model(params)
+        model = utils.load_model(params).cuda(params["GPU"])
+        #model = utils.load_model(params)
 
         test_acc = test(data, model, params)
         print("test acc:", test_acc)
